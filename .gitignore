@@ -1,0 +1,5 @@
+mandel*
+*.png
+*.ppm
+*.o
+output*
