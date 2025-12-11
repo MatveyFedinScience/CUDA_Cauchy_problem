@@ -1,5 +1,5 @@
-mandel*
 *.png
 *.ppm
 *.o
 output*
+simulation
