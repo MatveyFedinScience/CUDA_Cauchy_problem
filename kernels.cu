@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <math.h>
 #include <cuda_runtime.h>
 
@@ -14,22 +15,17 @@
 * @param n Number of particles.
 * @param R Radius of the circle along which the particles will be placed.
 * @param v0(temp) Base value of the initial velocity.
-* @param velocity_mode(temp)
-* Velocity setting mode:
-* - 0 — particles are stationary (vx = 0, vy = 0)
-* - 1 — velocities are directed toward the center (radially inward)
-* - 2 — velocities are directed tangentially (counterclockwise)
-* - 3 — velocities are directed away from the center (radially outward)
-*
+* @param phi Start angle for all particles relatively tangent in start point.
 * @details
 * Each particle is assigned a coordinate based on the angle
 * θ = 2π * idx / n
 * which distributes the particles evenly around the circumference.
 */
 __global__ void init_particles_kernel(Particle* particles, int n, float R,
-                                       float v0, int velocity_mode) {
+                                       float v0, float phi) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= n) return;
+    if ((0 >= phi) && (phi >= M_PI)) printf("\nphi must be between zero and pi! But your phi is %f!\n", phi);
 
     float theta = 2.0f * M_PI * idx / n;
 
@@ -37,24 +33,8 @@ __global__ void init_particles_kernel(Particle* particles, int n, float R,
     particles[idx].y = R * sinf(theta);
     particles[idx].tau = 0;
 
-    switch (velocity_mode) {
-        case 0:
-            particles[idx].vx = 0.0f;
-            particles[idx].vy = 0.0f;
-            break;
-        case 1:
-            particles[idx].vx = -v0 * cosf(theta);
-            particles[idx].vy = -v0 * sinf(theta);
-            break;
-        case 2:
-            particles[idx].vx = -v0 * sinf(theta);
-            particles[idx].vy =  v0 * cosf(theta);
-            break;
-        case 3:
-            particles[idx].vx = v0 * cosf(theta);
-            particles[idx].vy = v0 * sinf(theta);
-            break;
-    }
+    particles[idx].vx = v0 * cosf(theta + 0.5f * M_PI + phi);
+    particles[idx].vy = v0 * sinf(theta + 0.5f * M_PI + phi);
 }
 
 __global__ void integrate_kernel(Particle* particles, int n, float dt, int n_steps) {
@@ -67,7 +47,7 @@ __global__ void integrate_kernel(Particle* particles, int n, float dt, int n_ste
     float vy = particles[idx].vy;
 
     for (int step = 0; step < n_steps; step++) {
-        rk4_step(&x, &y, &vx, &vy, dt);
+        CALC_METHOD(&x, &y, &vx, &vy, dt);
     }
 
     particles[idx].x = x;
@@ -99,7 +79,7 @@ __global__ void integrate_with_history_kernel(Particle* particles,
     int save_idx = 1;
 
     for (int step = 1; step <= n_steps; step++) {
-        rk4_step(&x, &y, &vx, &vy, dt);
+        CALC_METHOD(&x, &y, &vx, &vy, dt);
 
         if (step % save_every == 0 && save_idx < n_saved) {
             trajectory_x[idx * n_saved + save_idx] = x;

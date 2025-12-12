@@ -6,7 +6,7 @@
 
 
 __global__ void init_particles_kernel(Particle* particles, int n, float R,
-                                       float v0, int velocity_mode);
+                                       float v0, float phi);
 
 __global__ void integrate_kernel(Particle* particles, int n, float dt, int n_steps);
 

@@ -9,6 +9,7 @@
 
 int main() {
 
+    printf("Due to optimisation reasons \\nabla potential != force on the boundary. It's reason of unequity of initial and final energy\n");
     Particle* d_particles;
     float* d_energies;
 
@@ -17,12 +18,30 @@ int main() {
 
     int blocks = (N_PARTICLES + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    float initial_velocity = 0.5f;
-    int velocity_mode = 0;
+    float initial_velocity = 0.005f;
+    float phi = M_PI / 2;
 
     init_particles_kernel<<<blocks, BLOCK_SIZE>>>(
-        d_particles, N_PARTICLES, R_CIRCLE, initial_velocity, velocity_mode
+        d_particles, N_PARTICLES, R_CIRCLE, initial_velocity, phi
     );
+
+    Particle* h_particles = (Particle*)malloc(N_PARTICLES * sizeof(Particle));
+
+    cudaMemcpy(h_particles, d_particles, N_PARTICLES * sizeof(Particle), cudaMemcpyDeviceToHost);
+
+    float x;
+    float y;
+
+    for (int i = 0; i < 100; i++){
+
+        x = h_particles[i].x;
+        y = h_particles[i].y;
+        printf("%.6f\n", x);
+        printf("%.6f\n", y);
+        printf("%.6f\n", x * x + y * y);
+
+    }
+
     cudaDeviceSynchronize();
 
     compute_energy_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, d_energies, N_PARTICLES);
@@ -44,19 +63,28 @@ int main() {
 
     cudaEventRecord(start, 0);
     integrate_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES, DT, N_STEPS);
-    finalize_particles_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES);
+    compute_energy_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, d_energies, N_PARTICLES);
+//    finalize_particles_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES);
     cudaEventRecord(stop, 0);
 
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
 
-    printf("Integration time: %.2f мс\n", milliseconds);
+    printf("Integration time: %.2f ms\n", milliseconds);
+    cudaMemcpy(h_energies, d_energies, N_PARTICLES * sizeof(float), cudaMemcpyDeviceToHost);
+    float E_final = 0.0f;
+    for (int i = 0; i < N_PARTICLES; i++) {
+        E_final += h_energies[i];
+    }
+    E_final /= N_PARTICLES;
+    printf("Mean Finally Energy before Finalization: %.6f\n", E_final);
+
 
     compute_energy_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, d_energies, N_PARTICLES);
     cudaMemcpy(h_energies, d_energies, N_PARTICLES * sizeof(float), cudaMemcpyDeviceToHost);
 
-    float E_final = 0.0f;
+    E_final = 0.0f;
     for (int i = 0; i < N_PARTICLES; i++) {
         E_final += h_energies[i];
     }
@@ -64,10 +92,20 @@ int main() {
     printf("Mean Finally Energy: %.6f\n", E_final);
     printf("|E_final - E_initial|/Energy: %.2e\n\n", fabsf(E_final - E_initial) / fabsf(E_initial));
 
-    Particle* h_particles = (Particle*)malloc(N_PARTICLES * sizeof(Particle));
+//    Particle* h_particles = (Particle*)malloc(N_PARTICLES * sizeof(Particle));
 
     cudaMemcpy(h_particles, d_particles, N_PARTICLES * sizeof(Particle), cudaMemcpyDeviceToHost);
 
+
+    for (int i = 0; i < 100; i++){
+
+        x = h_particles[i].x;
+        y = h_particles[i].y;
+        printf("%.6f\n", x);
+        printf("%.6f\n", y);
+        printf("%.6f\n", x * x + y * y);
+
+    }
     free(h_particles);
     free(h_energies);
 

@@ -7,5 +7,6 @@
 #define R_CIRCLE    1.0f
 #define BLOCK_SIZE  256
 #define IN_CIRCLE(x, y) ((int) ((x) * (x) + (y) * (y) < R_CIRCLE * R_CIRCLE))
+#define CALC_METHOD rk4_step //available list: rk4_step, gauss_legendre_step
 
 #endif
