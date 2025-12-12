@@ -6,5 +6,6 @@
 #define DT          0.001f
 #define R_CIRCLE    1.0f
 #define BLOCK_SIZE  256
+#define IN_CIRCLE(x, y) ((int) ((x) * (x) + (y) * (y) < R_CIRCLE * R_CIRCLE))
 
 #endif

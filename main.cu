@@ -44,6 +44,7 @@ int main() {
 
     cudaEventRecord(start, 0);
     integrate_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES, DT, N_STEPS);
+    finalize_particles_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES);
     cudaEventRecord(stop, 0);
 
     cudaEventSynchronize(stop);

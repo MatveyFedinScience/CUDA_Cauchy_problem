@@ -35,6 +35,7 @@ __global__ void init_particles_kernel(Particle* particles, int n, float R,
 
     particles[idx].x = R * cosf(theta);
     particles[idx].y = R * sinf(theta);
+    particles[idx].tau = 0;
 
     switch (velocity_mode) {
         case 0:
@@ -73,8 +74,9 @@ __global__ void integrate_kernel(Particle* particles, int n, float dt, int n_ste
     particles[idx].y = y;
     particles[idx].vx = vx;
     particles[idx].vy = vy;
-}
+    particles[idx].tau += DT * IN_CIRCLE(x, y);
 
+}
 
 __global__ void integrate_with_history_kernel(Particle* particles,
                                                float* trajectory_x,
@@ -84,8 +86,8 @@ __global__ void integrate_with_history_kernel(Particle* particles,
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= n) return;
 
-    float x = particles[idx].x;
-    float y = particles[idx].y;
+    float x  = particles[idx].x;
+    float y  = particles[idx].y;
     float vx = particles[idx].vx;
     float vy = particles[idx].vy;
 
@@ -106,23 +108,40 @@ __global__ void integrate_with_history_kernel(Particle* particles,
         }
     }
 
-    particles[idx].x = x;
-    particles[idx].y = y;
+    particles[idx].x  = x;
+    particles[idx].y  = y;
     particles[idx].vx = vx;
     particles[idx].vy = vy;
+    particles[idx].tau += DT * IN_CIRCLE(x, y);
+
 }
 
 __global__ void compute_energy_kernel(Particle* particles, float* energies, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= n) return;
 
-    float x = particles[idx].x;
-    float y = particles[idx].y;
+    float x  = particles[idx].x;
+    float y  = particles[idx].y;
     float vx = particles[idx].vx;
     float vy = particles[idx].vy;
 
-    float kinetic = 0.5f * (vx*vx + vy*vy);
+    float kinetic = 0.5f * (vx * vx + vy * vy);
     float pot = potential(x, y);
 
     energies[idx] = kinetic + pot;
+
+}
+
+__global__ void finalize_particles_kernel(Particle* particles, int n) {
+    //After this function you take final position and velocities of the particles
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= n) return;
+
+    float vx  = particles[idx].vx;
+    float vy  = particles[idx].vy;
+    float tau = particles[idx].tau;
+
+    particles[idx].x -= ( N_STEPS * DT - tau ) * vx;
+    particles[idx].y -= ( N_STEPS * DT - tau ) * vy;
+
 }

@@ -18,4 +18,6 @@ __global__ void integrate_with_history_kernel(Particle* particles,
 
 __global__ void compute_energy_kernel(Particle* particles, float* energies, int n);
 
+__global__ void finalize_particles_kernel(Particle* particles, int n);
+
 #endif
