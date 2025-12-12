@@ -31,7 +31,7 @@ __global__ void init_particles_kernel(Particle* particles, int n, float R,
 
     particles[idx].x = R * cosf(theta);
     particles[idx].y = R * sinf(theta);
-    particles[idx].tau = 0;
+    particles[idx].steps = 0;
 
     particles[idx].vx = v0 * cosf(theta + 0.5f * M_PI + phi);
     particles[idx].vy = v0 * sinf(theta + 0.5f * M_PI + phi);
@@ -48,13 +48,13 @@ __global__ void integrate_kernel(Particle* particles, int n, float dt, int n_ste
 
     for (int step = 0; step < n_steps; step++) {
         CALC_METHOD(&x, &y, &vx, &vy, dt);
+        particles[idx].steps += IN_CIRCLE(x, y);
     }
 
     particles[idx].x = x;
     particles[idx].y = y;
     particles[idx].vx = vx;
     particles[idx].vy = vy;
-    particles[idx].tau += DT * IN_CIRCLE(x, y);
 
 }
 
@@ -80,7 +80,7 @@ __global__ void integrate_with_history_kernel(Particle* particles,
 
     for (int step = 1; step <= n_steps; step++) {
         CALC_METHOD(&x, &y, &vx, &vy, dt);
-
+        particles[idx].steps += IN_CIRCLE(x, y);
         if (step % save_every == 0 && save_idx < n_saved) {
             trajectory_x[idx * n_saved + save_idx] = x;
             trajectory_y[idx * n_saved + save_idx] = y;
@@ -92,7 +92,6 @@ __global__ void integrate_with_history_kernel(Particle* particles,
     particles[idx].y  = y;
     particles[idx].vx = vx;
     particles[idx].vy = vy;
-    particles[idx].tau += DT * IN_CIRCLE(x, y);
 
 }
 
@@ -106,7 +105,7 @@ __global__ void compute_energy_kernel(Particle* particles, float* energies, int 
     float vy = particles[idx].vy;
 
     float kinetic = 0.5f * (vx * vx + vy * vy);
-    float pot = potential(x, y);
+    float pot = potential(x*.99, y*.99);
 
     energies[idx] = kinetic + pot;
 
@@ -119,7 +118,7 @@ __global__ void finalize_particles_kernel(Particle* particles, int n) {
 
     float vx  = particles[idx].vx;
     float vy  = particles[idx].vy;
-    float tau = particles[idx].tau;
+    float tau = particles[idx].steps * DT;
 
     particles[idx].x -= ( N_STEPS * DT - tau ) * vx;
     particles[idx].y -= ( N_STEPS * DT - tau ) * vy;

@@ -18,8 +18,8 @@ int main() {
 
     int blocks = (N_PARTICLES + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    float initial_velocity = 0.005f;
-    float phi = M_PI / 2;
+    float initial_velocity = 0.5f;
+    float phi = 1 * M_PI / 2;
 
     init_particles_kernel<<<blocks, BLOCK_SIZE>>>(
         d_particles, N_PARTICLES, R_CIRCLE, initial_velocity, phi
@@ -29,19 +29,20 @@ int main() {
 
     cudaMemcpy(h_particles, d_particles, N_PARTICLES * sizeof(Particle), cudaMemcpyDeviceToHost);
 
-    float x;
+/*    float x;
     float y;
 
     for (int i = 0; i < 100; i++){
 
         x = h_particles[i].x;
         y = h_particles[i].y;
-        printf("%.6f\n", x);
-        printf("%.6f\n", y);
-        printf("%.6f\n", x * x + y * y);
+        x += y;
+//        printf("%.6f\n", x);
+  //      printf("%.6f\n", y);
+    //    printf("%.6f\n", x * x + y * y);
 
     }
-
+*/
     cudaDeviceSynchronize();
 
     compute_energy_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, d_energies, N_PARTICLES);
@@ -64,7 +65,7 @@ int main() {
     cudaEventRecord(start, 0);
     integrate_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES, DT, N_STEPS);
     compute_energy_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, d_energies, N_PARTICLES);
-//    finalize_particles_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES);
+    finalize_particles_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, N_PARTICLES);
     cudaEventRecord(stop, 0);
 
     cudaEventSynchronize(stop);
@@ -96,16 +97,15 @@ int main() {
 
     cudaMemcpy(h_particles, d_particles, N_PARTICLES * sizeof(Particle), cudaMemcpyDeviceToHost);
 
+    int mean_time = 0;
 
-    for (int i = 0; i < 100; i++){
+    for (int i = 0; i < N_PARTICLES; i++){
 
-        x = h_particles[i].x;
-        y = h_particles[i].y;
-        printf("%.6f\n", x);
-        printf("%.6f\n", y);
-        printf("%.6f\n", x * x + y * y);
+        mean_time += h_particles[i].steps;
 
     }
+
+    printf("%f\n",(float) (mean_time / N_PARTICLES) * DT);
     free(h_particles);
     free(h_energies);
 
