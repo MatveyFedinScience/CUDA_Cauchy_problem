@@ -2,48 +2,66 @@
 #include <math.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
+#include <curand.h>
+#include <curand_kernel.h>
+
 
 #include "types.h"
 #include "config.h"
 #include "kernels.h"
+#include "helpers.h"
 
 int main() {
 
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+    printf("Device: %s\n", prop.name);
+    printf("SM count: %d\n", prop.multiProcessorCount);
+    printf("Max threads per SM: %d\n", prop.maxThreadsPerMultiProcessor);
+
+    cudaDeviceProp p{};
+    cudaGetDeviceProperties(&p, 0);
+
+    printf("maxThreadsPerBlock = %d\n", p.maxThreadsPerBlock);
+    printf("maxThreadsDim      = %d %d %d\n", p.maxThreadsDim[0], p.maxThreadsDim[1], p.maxThreadsDim[2]);
+    printf("maxGridSize        = %d %d %d\n", p.maxGridSize[0], p.maxGridSize[1], p.maxGridSize[2]);
+
     printf("Due to optimisation reasons \\nabla potential != force on the boundary. It's reason of unequity of initial and final energy\n");
+    printf("Total simulation time is %f\n", (float) DT * N_STEPS);
     Particle* d_particles;
+    curandState* d_states;
     float* d_energies;
 
     cudaMalloc((void**)&d_particles, N_PARTICLES * sizeof(Particle));
+    cudaMalloc((void**)&d_states, N_PARTICLES * sizeof(curandState));
     cudaMalloc((void**)&d_energies, N_PARTICLES * sizeof(float));
 
     int blocks = (N_PARTICLES + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    float initial_velocity = 0.5f;
-    float phi = 1 * M_PI / 2;
+    float max_init_vel = MAX_INIT_VEL;
+    float min_init_vel = MIN_INIT_VEL;
 
-    init_particles_kernel<<<blocks, BLOCK_SIZE>>>(
-        d_particles, N_PARTICLES, R_CIRCLE, initial_velocity, phi
+    unsigned long long seed = 1; //time(NULL);
+    setup_curand_states_kernel<<<blocks, BLOCK_SIZE>>>(d_states, seed, N_PARTICLES);
+
+    dim3 block(16, 16);
+    dim3 grid(
+        (int)ceilf(sqrtf((float)N_PARTICLES) / block.x),
+        (int)ceilf(sqrtf((float)N_PARTICLES) / block.y)
     );
+
+    printf("%d\n", (int)ceilf(sqrtf((float)N_PARTICLES)));
+
+    init_particles_kernel<<<grid, block>>>(
+        d_particles, d_states, N_PARTICLES, R_CIRCLE, max_init_vel, min_init_vel);
 
     Particle* h_particles = (Particle*)malloc(N_PARTICLES * sizeof(Particle));
 
     cudaMemcpy(h_particles, d_particles, N_PARTICLES * sizeof(Particle), cudaMemcpyDeviceToHost);
-
-/*    float x;
-    float y;
-
-    for (int i = 0; i < 100; i++){
-
-        x = h_particles[i].x;
-        y = h_particles[i].y;
-        x += y;
-//        printf("%.6f\n", x);
-  //      printf("%.6f\n", y);
-    //    printf("%.6f\n", x * x + y * y);
-
-    }
-*/
     cudaDeviceSynchronize();
+
+    char* image;
+    init_particles_to_image(h_particles, N_PARTICLES, &image);
 
     compute_energy_kernel<<<blocks, BLOCK_SIZE>>>(d_particles, d_energies, N_PARTICLES);
 
@@ -93,8 +111,6 @@ int main() {
     printf("Mean Finally Energy: %.6f\n", E_final);
     printf("|E_final - E_initial|/Energy: %.2e\n\n", fabsf(E_final - E_initial) / fabsf(E_initial));
 
-//    Particle* h_particles = (Particle*)malloc(N_PARTICLES * sizeof(Particle));
-
     cudaMemcpy(h_particles, d_particles, N_PARTICLES * sizeof(Particle), cudaMemcpyDeviceToHost);
 
     int mean_time = 0;
@@ -105,7 +121,10 @@ int main() {
 
     }
 
+
     printf("%f\n",(float) (mean_time / N_PARTICLES) * DT);
+    final_particles_to_image(h_particles, N_PARTICLES, &image);
+    save_single_image("test.ppm", image, 256, 256);
     free(h_particles);
     free(h_energies);
 

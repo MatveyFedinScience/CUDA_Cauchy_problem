@@ -3,8 +3,10 @@
 
 #include <cuda_runtime.h>
 
+
+
 __device__ __forceinline__ float potential(float x, float y) {
-    return 0.5f * (x * x + y * y) * IN_CIRCLE(x, y);
+    return 0.5f * (x * x + y * y - R_CIRCLE * R_CIRCLE) * IN_CIRCLE(x, y);
 }
 
 __device__ __forceinline__ void gradient_potential(float x, float y, float* dPhi_dx, float* dPhi_dy) {

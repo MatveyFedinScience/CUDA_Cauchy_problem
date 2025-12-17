@@ -5,8 +5,15 @@
 #include "config.h"
 
 
-__global__ void init_particles_kernel(Particle* particles, int n, float R,
-                                       float v0, float phi);
+__global__ void setup_curand_states_kernel(curandState* states,
+                                          unsigned long long seed, int n);
+
+__global__ void init_particles_kernel(Particle* particles,
+                                      curandState* states,
+                                      int n,
+                                      float R,
+                                      float v_max,
+                                      float v_min);
 
 __global__ void integrate_kernel(Particle* particles, int n, float dt, int n_steps);
 
