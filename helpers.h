@@ -29,6 +29,7 @@ void save_single_image(
     int height
 );
 
+
 #ifdef __cplusplus
 }
 #endif

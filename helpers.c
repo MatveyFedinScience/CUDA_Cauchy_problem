@@ -89,3 +89,4 @@ void save_single_image(
 
     fclose(fp);
 }
+
