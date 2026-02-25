@@ -66,6 +66,7 @@ void final_particles_to_image(
         unsigned char c = (unsigned char)speed;
 
         int idx = (y * S + x) * 3;
+        (*out_image)[idx + 0] = 0;
         (*out_image)[idx + 1] = c;       /* G */
         (*out_image)[idx + 2] = steps;   /* B */
     }

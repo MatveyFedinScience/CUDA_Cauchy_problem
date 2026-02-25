@@ -42,7 +42,7 @@ int main() {
     }
 
     const int blocks = (N_PARTICLES + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    const unsigned long long seed = 1;
+    const unsigned long long seed = 1; //time(NULL);
 
     const int side = (int)ceilf(sqrtf((float)N_PARTICLES));
     dim3 init_block(16, 16);
