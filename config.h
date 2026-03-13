@@ -21,5 +21,9 @@ maxGridSize        = 2147483647 65535 65535
 #define CALC_METHOD rk4_step //available list: rk4_step, gauss_legendre_step
 #define MAX_INIT_VEL .5f
 #define MIN_INIT_VEL .5f
+#define NOISE_WIDTH  256.0f
+#define NOISE_HEIGHT 256.0f
+#define NOISE_SCALE  ( + 0.4f )
+#define NOISE_FREQ (0.01f)
 
 #endif
