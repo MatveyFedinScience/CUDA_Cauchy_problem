@@ -23,7 +23,7 @@ maxGridSize        = 2147483647 65535 65535
 #define MIN_INIT_VEL .5f
 #define NOISE_WIDTH  256.0f
 #define NOISE_HEIGHT 256.0f
-#define NOISE_SCALE  ( + 0.4f )
+#define NOISE_SCALE  ( + 0.3f )
 #define NOISE_FREQ (0.01f)
 
 #endif
