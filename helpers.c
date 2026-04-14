@@ -67,7 +67,7 @@ void final_particles_to_image(
 
         int idx = (y * S + x) * 3;
         (*out_image)[idx + 0] = 0;
-        (*out_image)[idx + 1] = c;       /* G */
+        (*out_image)[idx + 1] = 0; //c; - simplest test       /* G */
         (*out_image)[idx + 2] = steps;   /* B */
     }
 
