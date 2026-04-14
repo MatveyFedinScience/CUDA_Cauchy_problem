@@ -6,9 +6,13 @@
 #include "config.h"
 
 extern __device__ cudaTextureObject_t d_globalNoiseTex;
+extern __device__ cudaTextureObject_t d_FxTex;
+extern __device__ cudaTextureObject_t d_FyTex;
+extern __device__ bool g_use_forces;
 
 
 __device__ __forceinline__ float potential(float X, float Y) {
+    if (g_use_forces) return 0.0f;
     float u = (X + 1.0f) * 0.5f * NOISE_WIDTH;
     float v = (Y + 1.0f) * 0.5f * NOISE_HEIGHT;
 
@@ -16,6 +20,13 @@ __device__ __forceinline__ float potential(float X, float Y) {
 }
 
 __device__ __forceinline__ void gradient_potential(float X, float Y, float* dPhi_dx, float* dPhi_dy) {
+    if (g_use_forces) {
+        float u = (X + 1.0f) * 0.5f * NOISE_WIDTH;
+        float v = (Y + 1.0f) * 0.5f * NOISE_HEIGHT;
+        *dPhi_dx = -tex2D<float>(d_FxTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+        *dPhi_dy = -tex2D<float>(d_FyTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+        return;
+    }
     float u = (X + 1.0f) * 0.5f * NOISE_WIDTH;
     float v = (Y + 1.0f) * 0.5f * NOISE_HEIGHT;
   

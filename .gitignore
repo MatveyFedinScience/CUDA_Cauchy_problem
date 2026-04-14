@@ -4,3 +4,15 @@
 output*
 simulation
 TODO
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+tests/*.cu
+tests/*.o
+tests/*.ppm
+tests/*.png
+!tests/README.md
+a.out
+*.exe
+*.out
