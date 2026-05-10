@@ -16,3 +16,4 @@ tests/*.png
 a.out
 *.exe
 *.out
+*/

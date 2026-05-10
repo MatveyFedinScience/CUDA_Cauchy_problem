@@ -23,7 +23,15 @@ maxGridSize        = 2147483647 65535 65535
 #define MIN_INIT_VEL .5f
 #define NOISE_WIDTH  256.0f
 #define NOISE_HEIGHT 256.0f
-#define NOISE_SCALE  ( + 0.25f )
+#define NOISE_SCALE  ( + 0.10f )
 #define NOISE_FREQ (0.01f)
+
+#define BLUR_ENABLED        1
+#define BLUR_RADIUS         4
+#define BLUR_SIGMA          1.5f
+#define BLUR_BLOCK_DIM      16
+
+#define POTENTIAL_CLAMP     1.0f
+#define GRADIENT_CLAMP      1.0f
 
 #endif

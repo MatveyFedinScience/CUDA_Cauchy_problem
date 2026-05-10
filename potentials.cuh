@@ -10,21 +10,27 @@ extern __device__ cudaTextureObject_t d_FxTex;
 extern __device__ cudaTextureObject_t d_FyTex;
 extern __device__ bool g_use_forces;
 
+__device__ __forceinline__ float clampf(float val, float lo, float hi) {
+    return fminf(fmaxf(val, lo), hi);
+}
 
 __device__ __forceinline__ float potential(float X, float Y) {
     if (g_use_forces) return 0.0f;
     float u = (X + 1.0f) * 0.5f * NOISE_WIDTH;
     float v = (Y + 1.0f) * 0.5f * NOISE_HEIGHT;
 
-    return tex2D<float>(d_globalNoiseTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+    float val = tex2D<float>(d_globalNoiseTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+    return clampf(val, -POTENTIAL_CLAMP, POTENTIAL_CLAMP);
 }
 
 __device__ __forceinline__ void gradient_potential(float X, float Y, float* dPhi_dx, float* dPhi_dy) {
     if (g_use_forces) {
         float u = (X + 1.0f) * 0.5f * NOISE_WIDTH;
         float v = (Y + 1.0f) * 0.5f * NOISE_HEIGHT;
-        *dPhi_dx = -tex2D<float>(d_FxTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
-        *dPhi_dy = -tex2D<float>(d_FyTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+        float fx = -tex2D<float>(d_FxTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+        float fy = -tex2D<float>(d_FyTex, u + 0.5f, v + 0.5f) * IN_CIRCLE(X, Y);
+        *dPhi_dx = clampf(fx, -GRADIENT_CLAMP, GRADIENT_CLAMP);
+        *dPhi_dy = clampf(fy, -GRADIENT_CLAMP, GRADIENT_CLAMP);
         return;
     }
     float u = (X + 1.0f) * 0.5f * NOISE_WIDTH;
@@ -42,19 +48,55 @@ __device__ __forceinline__ void gradient_potential(float X, float Y, float* dPhi
 
     float scale = NOISE_SCALE * NOISE_WIDTH * 0.5f; 
 
-    *dPhi_dx = grad_u * scale * IN_CIRCLE(X, Y);
-    *dPhi_dy = grad_v * scale * IN_CIRCLE(X, Y);
+    float gx = grad_u * scale * IN_CIRCLE(X, Y);
+    float gy = grad_v * scale * IN_CIRCLE(X, Y);
+
+    *dPhi_dx = clampf(gx, -GRADIENT_CLAMP, GRADIENT_CLAMP);
+    *dPhi_dy = clampf(gy, -GRADIENT_CLAMP, GRADIENT_CLAMP);
 }
 
+#if BLUR_ENABLED
 
-/*
-__device__ __forceinline__ float potential(float x, float y) {
-    return -0.173*x*x + -0.035*y*y + -0.021*x*y + -0.054*x;
+static __device__ float gaussian_2d_weight(int dx, int dy, float sigma) {
+    float r2 = (float)(dx * dx + dy * dy);
+    return __expf(-r2 / (2.0f * sigma * sigma));
 }
 
-__device__ __forceinline__ void gradient_potential(float x, float y, float* dPhi_dx, float* dPhi_dy) {
-    *dPhi_dx = 2*-0.173*x + -0.021*y + -0.054;
-    *dPhi_dy = 2*-0.035*y + -0.021*x;
+static __global__ void gaussian_blur_kernel(
+    const float* __restrict__ input,
+    float* __restrict__ output,
+    int width, int height)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= width || y >= height) return;
+
+    float sum = 0.0f;
+    float weight_sum = 0.0f;
+
+    const int R = BLUR_RADIUS;
+    const float sigma = BLUR_SIGMA;
+
+    for (int dy = -R; dy <= R; dy++) {
+        int sy = y + dy;
+        if (sy < 0) sy = 0;
+        if (sy >= height) sy = height - 1;
+
+        for (int dx = -R; dx <= R; dx++) {
+            int sx = x + dx;
+            if (sx < 0) sx = 0;
+            if (sx >= width) sx = width - 1;
+
+            float w = gaussian_2d_weight(dx, dy, sigma);
+            sum += input[sy * width + sx] * w;
+            weight_sum += w;
+        }
+    }
+
+    output[y * width + x] = sum / weight_sum;
 }
-*/
+
+#endif
+
 #endif

@@ -317,8 +317,10 @@ int main(int argc, char** argv) {
 
 
     float* d_noiseMap;
+    float* d_blurred;
     size_t sizeBytes = NOISE_WIDTH * NOISE_HEIGHT * sizeof(float);
     cudaMalloc(&d_noiseMap, sizeBytes);
+    cudaMalloc(&d_blurred, sizeBytes);
 
     dim3 noise_threads(16, 16);
     dim3 noise_blocks((NOISE_WIDTH + 15) / 16, (NOISE_HEIGHT + 15) / 16);
@@ -362,9 +364,20 @@ int main(int argc, char** argv) {
             CUDA_CHECK(cudaDeviceSynchronize());
         }
 
+#if BLUR_ENABLED
+        {
+            dim3 blur_block(BLUR_BLOCK_DIM, BLUR_BLOCK_DIM);
+            dim3 blur_grid((NOISE_WIDTH  + BLUR_BLOCK_DIM - 1) / BLUR_BLOCK_DIM,
+                           (NOISE_HEIGHT + BLUR_BLOCK_DIM - 1) / BLUR_BLOCK_DIM);
+            gaussian_blur_kernel<<<blur_grid, blur_block>>>(d_noiseMap, d_blurred,
+                                                             NOISE_WIDTH, NOISE_HEIGHT);
+            CUDA_CHECK(cudaDeviceSynchronize());
+        }
+#endif
+
         cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
         CUDA_CHECK(cudaMallocArray(&cuArray, &channelDesc, NOISE_WIDTH, NOISE_HEIGHT));
-        CUDA_CHECK(cudaMemcpy2DToArray(cuArray, 0, 0, d_noiseMap, 
+        CUDA_CHECK(cudaMemcpy2DToArray(cuArray, 0, 0, d_blurred, 
                             NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float), 
                             NOISE_HEIGHT, cudaMemcpyDeviceToDevice));
 
@@ -457,17 +470,44 @@ int main(int argc, char** argv) {
             free(h_Fy);
         }
 
-        // Create texture objects for Fx and Fy
+#if BLUR_ENABLED
+        {
+            dim3 blur_block(BLUR_BLOCK_DIM, BLUR_BLOCK_DIM);
+            dim3 blur_grid((NOISE_WIDTH  + BLUR_BLOCK_DIM - 1) / BLUR_BLOCK_DIM,
+                           (NOISE_HEIGHT + BLUR_BLOCK_DIM - 1) / BLUR_BLOCK_DIM);
+
+            gaussian_blur_kernel<<<blur_grid, blur_block>>>(d_Fx, d_blurred,
+                                                             NOISE_WIDTH, NOISE_HEIGHT);
+            CUDA_CHECK(cudaDeviceSynchronize());
+
+            cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
+            CUDA_CHECK(cudaMallocArray(&cuArray_Fx, &channelDesc, NOISE_WIDTH, NOISE_HEIGHT));
+            CUDA_CHECK(cudaMallocArray(&cuArray_Fy, &channelDesc, NOISE_WIDTH, NOISE_HEIGHT));
+
+            CUDA_CHECK(cudaMemcpy2DToArray(cuArray_Fx, 0, 0, d_blurred,
+                                NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float),
+                                NOISE_HEIGHT, cudaMemcpyDeviceToDevice));
+
+            gaussian_blur_kernel<<<blur_grid, blur_block>>>(d_Fy, d_blurred,
+                                                             NOISE_WIDTH, NOISE_HEIGHT);
+            CUDA_CHECK(cudaDeviceSynchronize());
+
+            CUDA_CHECK(cudaMemcpy2DToArray(cuArray_Fy, 0, 0, d_blurred,
+                                NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float),
+                                NOISE_HEIGHT, cudaMemcpyDeviceToDevice));
+        }
+#else
         cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
         CUDA_CHECK(cudaMallocArray(&cuArray_Fx, &channelDesc, NOISE_WIDTH, NOISE_HEIGHT));
         CUDA_CHECK(cudaMallocArray(&cuArray_Fy, &channelDesc, NOISE_WIDTH, NOISE_HEIGHT));
 
-        CUDA_CHECK(cudaMemcpy2DToArray(cuArray_Fx, 0, 0, d_Fx, 
-                            NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float), 
+        CUDA_CHECK(cudaMemcpy2DToArray(cuArray_Fx, 0, 0, d_Fx,
+                            NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float),
                             NOISE_HEIGHT, cudaMemcpyDeviceToDevice));
-        CUDA_CHECK(cudaMemcpy2DToArray(cuArray_Fy, 0, 0, d_Fy, 
-                            NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float), 
+        CUDA_CHECK(cudaMemcpy2DToArray(cuArray_Fy, 0, 0, d_Fy,
+                            NOISE_WIDTH * sizeof(float), NOISE_WIDTH * sizeof(float),
                             NOISE_HEIGHT, cudaMemcpyDeviceToDevice));
+#endif
 
         struct cudaResourceDesc resDesc;
         memset(&resDesc, 0, sizeof(resDesc));
@@ -621,6 +661,7 @@ int main(int argc, char** argv) {
     }
     // d_noiseMap is always allocated at the beginning
     CUDA_CHECK(cudaFree(d_noiseMap));
+    CUDA_CHECK(cudaFree(d_blurred));
 
     return 0;
 }
