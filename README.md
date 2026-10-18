@@ -62,3 +62,20 @@ This project uses the following open-source libraries:
 
 *   **FastNoiseLiteCUDA** by [NeKon69](https://github.com/NeKon69/FastNoiseLiteCUDA) - CUDA port of FastNoiseLite.
 *   **FastNoiseLite** by [Auburn](https://github.com/Auburn/FastNoiseLite) - The original noise generation library.
+
+## Citation
+
+If you use this software in scientific work, please cite it as:
+
+> M. M. Fedin, *CUDA Cauchy Problem*, version 2.1, computer software,
+> GitHub, 2026. https://github.com/MatveyFedinScience/CUDA_Cauchy_problem
+
+```bibtex
+@software{Fedin2026CUDACauchy,
+  author  = {Fedin, Matvei Mikhailovich},
+  title   = {{CUDA Cauchy Problem}},
+  year    = {2026},
+  version = {2.1},
+  url     = {https://github.com/MatveyFedinScience/CUDA_Cauchy_problem},
+  note    = {Computer software}
+}
